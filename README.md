@@ -108,6 +108,6 @@ This will stream the file directly from Telegram servers to the client.
 ## 💡 Credits
 
 - **Deekshith SH** – Me (aka **SpringsFern**, **GatheredAtom696**)
-- **Tulir** – Original author of [`tgfilestream`](https://github.com/tulir/tgfilestream), whose code inspired this project and is referenced in `paralleltransfer.py`
+- **Tulir** – Original author of [`tg-filestream`](https://github.com/tulir/tg-filestream), whose code inspired this project and is referenced in `paralleltransfer.py`
 
 ---
