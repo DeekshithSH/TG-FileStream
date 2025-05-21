@@ -26,11 +26,11 @@ from tgfs.utils import get_filename
 
 log = logging.getLogger(__name__)
 
-@client.on(events.NewMessage(func=lambda x: x.is_private and not x.file))
+@client.on(events.NewMessage(incoming=True, func=lambda x: x.is_private and not x.file))
 async def handle_text_message(evt: events.NewMessage.Event) -> None:
     await evt.reply("Send me any telegram file or photo I will generate a link for it")
 
-@client.on(events.NewMessage(func=lambda x: x.is_private and x.file))
+@client.on(events.NewMessage(incoming=True, func=lambda x: x.is_private and x.file))
 async def handle_file_message(evt: events.NewMessage.Event) -> None:
     fwd_msg: Message = await evt.message.forward_to(Config.BIN_CHANNEL)
     url = f"{Config.PUBLIC_URL}/{fwd_msg.id}/{parse.quote(get_filename(evt))}"
