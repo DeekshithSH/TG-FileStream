@@ -17,9 +17,7 @@
 import logging
 import asyncio
 from aiohttp import web
-from aiohttp.client_exceptions import ClientConnectionResetError
 
-from tgfs.config import Config
 from tgfs.telegram import multi_clients
 from tgfs.utils import FileInfo
 
@@ -29,7 +27,7 @@ routes = web.RouteTableDef()
 client_selection_lock = asyncio.Lock()
 
 @routes.get("/")
-async def handle_root(req: web.Request):
+async def handle_root(_: web.Request):
     return web.json_response({key: [val.active_clients, val.users] for key, val in multi_clients.items()})
 
 @routes.get(r"/{msg_id:-?\d+}/{name}")
@@ -45,11 +43,11 @@ async def handle_file_request(req: web.Request) -> web.Response:
         client_id = min(multi_clients, key=lambda k: multi_clients[k].active_clients)
         transfer = multi_clients[client_id]
         transfer.active_clients += 1
-        log.debug(f"Selected client {client_id} for {file_name}. Active downloads for this client: {transfer.active_clients}")
+        log.debug("Selected client %d for %s. Active downloads for this client: %d", client_id, file_name, transfer.active_clients)
 
     file: FileInfo = await transfer.get_file(msg_id, file_name)
     if not file:
-        log.warning(f"File not found for msg_id {msg_id}, name {file_name} using client {client_id}")
+        log.warning("File not found for msg_id %d, name %s using client %d", msg_id, file_name, client_id)
         return web.Response(status=404, text="404: Not Found")
 
     size = file.file_size
@@ -59,13 +57,7 @@ async def handle_file_request(req: web.Request) -> web.Response:
     if (until_bytes >= size) or (from_bytes < 0) or (until_bytes < from_bytes):
         return web.Response(status=416,headers={"Content-Range": f"bytes */{size}"})
 
-    if head:
-        body = None
-    else:
-        body = transfer.download(file.location, file.dc_id, size, from_bytes, until_bytes)
-
-    return web.Response(status=200 if (from_bytes == 0 and until_bytes == size - 1) else 206,
-    body=body,
+    response = web.StreamResponse(status=200 if (from_bytes == 0 and until_bytes == size - 1) else 206,
     headers={
         "Content-Type": file.mime_type,
         "Content-Range": f"bytes {from_bytes}-{until_bytes}/{size}",
@@ -73,3 +65,22 @@ async def handle_file_request(req: web.Request) -> web.Response:
         "Content-Disposition": f'attachment; filename="{file_name}"',
         "Accept-Ranges": "bytes",
     })
+
+    try:
+        log.debug("Preparing stream response")
+        await response.prepare(req)
+        if not head:
+            log.debug("writing chunk to response")
+            await transfer.download(file.location, file.dc_id, size, from_bytes, until_bytes, response.write)
+        try:
+            log.debug("Calling response.write_eof()")
+            await asyncio.wait_for(response.write_eof(), timeout=5)
+        except Exception:
+            req.transport.close()
+        return response
+
+    finally:
+        if transfer:
+            async with client_selection_lock:
+                transfer.active_clients -= 1
+        log.debug("Response stream closed")

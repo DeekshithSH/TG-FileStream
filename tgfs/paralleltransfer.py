@@ -20,7 +20,7 @@
 # pylint: disable=protected-access
 
 from collections import OrderedDict
-from typing import AsyncGenerator, Dict, Optional, List
+from typing import AsyncGenerator, Callable, Coroutine, Dict, Optional, List
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 import logging
@@ -35,7 +35,7 @@ from telethon.tl.functions import InvokeWithLayerRequest
 from telethon.tl.functions.auth import ExportAuthorizationRequest, ImportAuthorizationRequest
 from telethon.tl.functions.upload import GetFileRequest
 from telethon.tl.types import DcOption
-from telethon.errors import DcIdInvalidError, FloodWaitError
+from telethon.errors import DcIdInvalidError
 
 from tgfs.config import Config
 from tgfs.utils import get_fileinfo, FileInfo, InputTypeLocation
@@ -80,7 +80,8 @@ class DCConnectionManager:
             self.dc = await self.client._get_dc(self.dc_id)
         sender = MTProtoSender(self.auth_key, loggers=self.client._log)
         index = len(self.connections) + 1
-        conn = Connection(sender=sender, log=self.log.getChild(f"conn{index}"), lock=asyncio.Lock())
+        conn = Connection(sender=sender, log=self.log.getChild(
+            f"conn{index}"), lock=asyncio.Lock())
         self.connections.append(conn)
         async with conn.lock:
             conn.log.info("Connecting...")
@@ -176,11 +177,12 @@ class ParallelTransferrer:
     async def get_file(self, message_id: int, file_name: str) -> Optional[FileInfo]:
         if message_id in self.cached_files:
             return await self.cached_files[message_id]
-        task=asyncio.create_task(get_fileinfo(self.client, message_id, file_name))
+        task = asyncio.create_task(get_fileinfo(
+            self.client, message_id, file_name))
         if Config.CACHE_SIZE is not None and len(self.cached_files) > Config.CACHE_SIZE:
             self.cached_files.popitem(last=False)
-        self.cached_files[message_id]=task
-        file_id=await task
+        self.cached_files[message_id] = task
+        file_id = await task
         if not file_id:
             self.cached_files.pop(message_id)
             self.log.debug("File not found for message with ID %s", message_id)
@@ -189,8 +191,9 @@ class ParallelTransferrer:
         return file_id
 
     async def _int_download(self, request: GetFileRequest, first_part: int, last_part: int,
-                            part_count: int, part_size: int, dc_id: int, first_part_cut: int,
-                            last_part_cut: int) -> AsyncGenerator[bytes, None]:
+        part_count: int, part_size: int, dc_id: int, first_part_cut: int,
+        last_part_cut: int, writer: Callable[[bytes], Coroutine[None, None, None]]
+    ) -> AsyncGenerator[bytes, None]:
         log = self.log
         self.users += 1
         try:
@@ -199,13 +202,20 @@ class ParallelTransferrer:
             async with dcm.get_connection() as conn:
                 log = conn.log
                 queue = asyncio.Queue(maxsize=Config.PREFETCH_COUNT)
+
                 async def producer():
                     nonlocal part
                     try:
                         while part <= last_part:
                             try:
                                 result = await asyncio.wait_for(conn.sender.send(request), timeout=Config.TIMEOUT_SECONDS)
-                            except:
+                            except asyncio.TimeoutError:
+                                log.debug(
+                                    "Timeout occurred while sending request")
+                                break
+                            except Exception as e:
+                                log.debug(
+                                    "Exception during part download: %s", e)
                                 break
 
                             request.offset += part_size
@@ -219,11 +229,13 @@ class ParallelTransferrer:
                                 await queue.put(result.bytes[:last_part_cut])
                             else:
                                 await queue.put(result.bytes)
-                            log.debug("Part %d/%d (total %s) downloaded", part, last_part, part_count)
+                            log.debug("Part %d/%d (total %d) downloaded",
+                                      part, last_part, part_count)
                             part += 1
                         log.debug("Parallel download finished")
                     finally:
                         await queue.put(None)
+                        log.debug("Producer finished and sentinel sent")
 
                 task = asyncio.create_task(producer())
                 try:
@@ -231,27 +243,45 @@ class ParallelTransferrer:
                         item = await queue.get()
                         if item is None:
                             break
-                        yield item
-                        del item
+                        try:
+                            await asyncio.wait_for(writer(item), Config.TIMEOUT_SECONDS)
+                        except (ConnectionResetError, asyncio.CancelledError, BrokenPipeError, ConnectionError) as e:
+                            log.debug(f"Client disconnected during write: {e}")
+                            break
+                        except asyncio.TimeoutError:
+                            log.debug("Timeout when writing")
+                            break
                         queue.task_done()
-                    await task
                 finally:
+                    log.debug("Finalizing: cancelling producer if running")
                     task.cancel()
+
+                    # Drain the queue to ensure space is available for the producer's sentinel (None).
+                    # This prevents a potential deadlock where the producer is waiting to put(None),
+                    # but the queue is full and the consumer is awaiting the producer to finish.
+                    while True:
+                        try:
+                            queue.get_nowait()
+                        except asyncio.QueueEmpty:
+                            break
                     try:
                         await task
                     except asyncio.CancelledError:
-                        pass
-        except (GeneratorExit, StopAsyncIteration, asyncio.CancelledError):
-            log.debug("Parallel download interrupted")
+                        log.debug("Producer task cancelled cleanly")
+        except asyncio.CancelledError:
+            log.debug("Download task was cancelled")
             raise
-        except Exception:
-            log.debug("Parallel download errored", exc_info=True)
+        except Exception as e:
+            log.debug(f"Parallel download errored {e}")
         finally:
-            self.active_clients -= 1
             self.users -= 1
+            log.debug("Finished _int_download. Users: %d, Active Clients: %d",
+                      self.users, self.active_clients)
 
-    def download(self, location: InputTypeLocation, dc_id: int, file_size: int, offset: int, limit: int
-                 ) -> AsyncGenerator[bytes, None]:
+    def download(
+            self, location: InputTypeLocation, dc_id: int, file_size: int,
+            offset: int, limit: int, writer: Callable[[bytes], Coroutine[None, None, None]]
+    ) -> AsyncGenerator[bytes, None]:
         part_size = Config.DOWNLOAD_PART_SIZE
         first_part_cut = offset % part_size
         first_part = math.floor(offset / part_size)
@@ -259,8 +289,9 @@ class ParallelTransferrer:
         last_part = math.ceil(limit / part_size)
         part_count = math.ceil(file_size / part_size)
         self.log.debug("Starting parallel download: chunks %d-%d of %d %s",
-            first_part, last_part, part_count, location)
-        request = GetFileRequest(location, offset=first_part * part_size, limit=part_size)
+                       first_part, last_part, part_count, location)
+        request = GetFileRequest(
+            location, offset=first_part * part_size, limit=part_size)
 
         return self._int_download(request, first_part, last_part, part_count, part_size, dc_id,
-                                  first_part_cut, last_part_cut)
+                                  first_part_cut, last_part_cut, writer)
