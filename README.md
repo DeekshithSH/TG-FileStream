@@ -64,18 +64,22 @@ python3 -m tgfs
 
 ## ⚙️ Environment Variables
 
-| Variable          | Required | Description                                                                  |
-|-------------------|----------|------------------------------------------------------------------------------|
-| `API_ID`          | ✅       | App ID from [my.telegram.org](https://my.telegram.org)                       |
-| `API_HASH`        | ✅       | API Hash from [my.telegram.org](https://my.telegram.org)                     |
-| `BOT_TOKEN`       | ✅       | Bot token from [@BotFather](https://t.me/BotFather)                          |
-| `BIN_CHANNEL`     | ✅       | Channel ID where files sent to bot are sent                                  |
-| `HOST`            | ❌       | Host to bind the server (default: `0.0.0.0`)                                 |
-| `PORT`            | ❌       | Port to run the server on (default: `8080`)                                  |
-| `PUBLIC_URL`      | ❌       | Public-facing URL used to generate download links                            |
-| `CONNECTION_LIMIT`| ❌       | No of Connection to create for a single DC per client                        |
-| `CACHE_SIZE`      | ❌       | No of File Info to cache                                                     |
-| `TIMEOUT_SECONDS` | ❌       | No of Seconds to wait after sending GetFileRequest before closing connection |
+| Variable             | Required/Default       | Description                                                                  |
+| -------------------- | ---------------------- | ---------------------------------------------------------------------------- |
+| `API_ID`             | ✅                     | App ID from [my.telegram.org](https://my.telegram.org)                       |
+| `API_HASH`           | ✅                     | API hash from [my.telegram.org](https://my.telegram.org)                     |
+| `BOT_TOKEN`          | ✅                     | Bot token from [@BotFather](https://t.me/BotFather)                          |
+| `BIN_CHANNEL`        | ✅                     | Channel ID where files sent to the bot are stored                            |
+| `HOST`               | `0.0.0.0`              | Host address to bind the server (default: `0.0.0.0`)                         |
+| `PORT`               | `8080`                 | Port to run the server on (default: `8080`)                                  |
+| `PUBLIC_URL`         | `https://0.0.0.0:8080` | Public-facing URL used to generate download links                            |
+| `CONNECTION_LIMIT`   | `20`                   | Number of connections to create per DC for a single client                   |
+| `CACHE_SIZE`         | `128`                  | Number of file info objects to cache                                         |
+| `TIMEOUT_SECONDS`    | `30`                   | Number of seconds to wait after sending a `GetFileRequest` before timing out |
+| `DOWNLOAD_PART_SIZE` | `1048576 (1MB)`        | Number of bytes to request in a single chunk                                 |
+| `PREFETCH_COUNT`     | `2`                    | Number of chunks to request in advance                                       |
+| `NO_UPDATE`          | `False`                | Whether to reply to messages sent to the bot (True to disable replies)       |
+
 
 
 - `MULTI_TOKENx`: Use Multiple Telegram Clients when downloading files to avoid flood wait, Replace x with Number

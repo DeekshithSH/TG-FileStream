@@ -31,7 +31,8 @@ runner = web.AppRunner(app)
 
 async def start() -> None:
     await client.start(bot_token=Config.BOT_TOKEN)
-    load_plugins("tgfs/plugins")
+    if not Config.NO_UPDATE:
+        load_plugins("tgfs/plugins")
 
     # https://github.com/LonamiWebs/Telethon/blob/59da66e105ba29eee7760538409181859c7d310d/telethon/client/downloads.py#L62
     config = await client(functions.help.GetConfigRequest())

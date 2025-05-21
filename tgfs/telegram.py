@@ -29,7 +29,12 @@ from tgfs.paralleltransfer import ParallelTransferrer
 
 log = logging.getLogger(__name__)
 
-client = TelegramClient("tg-filestream", api_id=Config.API_ID, api_hash=Config.API_HASH)
+client = TelegramClient(
+    "tg-filestream",
+    api_id=Config.API_ID,
+    api_hash=Config.API_HASH,
+    receive_updates=not Config.NO_UPDATE
+)
 multi_clients: Dict[int, ParallelTransferrer] = {}
 
 async def _start_client(token: str) -> Tuple[Optional[ParallelTransferrer], Optional[int]]:
