@@ -15,17 +15,22 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+import asyncio
 from aiohttp import web
+from aiohttp.client_exceptions import ClientConnectionResetError
 
+from tgfs.config import Config
 from tgfs.telegram import multi_clients
 from tgfs.utils import FileInfo
 
 log = logging.getLogger(__name__)
 routes = web.RouteTableDef()
 
+client_selection_lock = asyncio.Lock()
+
 @routes.get("/")
 async def handle_root(req: web.Request):
-    return web.json_response({key: val.users for key, val in multi_clients.items()})
+    return web.json_response({key: [val.active_clients, val.users] for key, val in multi_clients.items()})
 
 @routes.get(r"/{msg_id:-?\d+}/{name}")
 async def handle_file_request(req: web.Request) -> web.Response:
@@ -33,11 +38,18 @@ async def handle_file_request(req: web.Request) -> web.Response:
     msg_id = int(req.match_info["msg_id"])
     file_name = req.match_info["name"]
 
-    client_id = min(multi_clients, key=lambda k: multi_clients[k].users)
-    transfer = multi_clients[client_id]
+    transfer = None
+    client_id = None
+
+    async with client_selection_lock:
+        client_id = min(multi_clients, key=lambda k: multi_clients[k].active_clients)
+        transfer = multi_clients[client_id]
+        transfer.active_clients += 1
+        log.debug(f"Selected client {client_id} for {file_name}. Active downloads for this client: {transfer.active_clients}")
 
     file: FileInfo = await transfer.get_file(msg_id, file_name)
     if not file:
+        log.warning(f"File not found for msg_id {msg_id}, name {file_name} using client {client_id}")
         return web.Response(status=404, text="404: Not Found")
 
     size = file.file_size

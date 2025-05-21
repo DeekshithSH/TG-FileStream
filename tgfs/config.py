@@ -49,4 +49,5 @@ class Config:
     CONNECTION_LIMIT: int = int(environ.get("CONNECTION_LIMIT", 20))
     TOKENS: List[str] = get_multi_client_tokens()
     CACHE_SIZE: int = int(environ.get("CACHE_SIZE", 128))
-    TIMEOUT_SECONDS: int = int(environ.get("TIMEOUT_SECONDS", 10))
+    TIMEOUT_SECONDS: int = int(environ.get("TIMEOUT_SECONDS", 30))
+    DOWNLOAD_PART_SIZE = 1024 * 1024 # 512KB

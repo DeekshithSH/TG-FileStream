@@ -143,12 +143,14 @@ class ParallelTransferrer:
     client: TelegramClient
     dc_managers: Dict[int, DCConnectionManager]
     users: int
+    active_clients: int
     cached_files: OrderedDict
 
     def __init__(self, client: TelegramClient, client_id: int) -> None:
         self.log = root_log.getChild(f"bot{client_id}")
         self.client = client
         self.users = 0
+        self.active_clients = 0
         self.cached_files = OrderedDict()
         self.dc_managers = {
             1: DCConnectionManager(client, 1, self.log),
@@ -173,9 +175,7 @@ class ParallelTransferrer:
 
     async def get_file(self, message_id: int, file_name: str) -> Optional[FileInfo]:
         if message_id in self.cached_files:
-            # await asyncio.sleep(1) # Small deplay delay
             return await self.cached_files[message_id]
-            # ToDo: Figure out why all connections are not closing
         task=asyncio.create_task(get_fileinfo(self.client, message_id, file_name))
         if Config.CACHE_SIZE is not None and len(self.cached_files) > Config.CACHE_SIZE:
             self.cached_files.popitem(last=False)
@@ -201,10 +201,8 @@ class ParallelTransferrer:
                 while part <= last_part:
                     try:
                         result = await asyncio.wait_for(conn.sender.send(request), timeout=Config.TIMEOUT_SECONDS)
-                    except FloodWaitError as e:
-                        log.info("Flood wait of %d seconds", e.seconds)
-                        await asyncio.sleep(e.seconds)
-                        result = await asyncio.wait_for(conn.sender.send(request), timeout=Config.TIMEOUT_SECONDS)
+                    except:
+                        break
 
                     request.offset += part_size
                     if not result.bytes:
@@ -223,11 +221,10 @@ class ParallelTransferrer:
         except (GeneratorExit, StopAsyncIteration, asyncio.CancelledError):
             log.debug("Parallel download interrupted")
             raise
-        except asyncio.TimeoutError:
-            log.debug("Parallel Download Timeout")
         except Exception:
             log.debug("Parallel download errored", exc_info=True)
         finally:
+            self.active_clients -= 1
             self.users -= 1
 
     def download(self, location: InputTypeLocation, dc_id: int, file_size: int, offset: int, limit: int
