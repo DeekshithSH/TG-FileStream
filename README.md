@@ -1,5 +1,8 @@
 # TG-FileStream
 
+> This project is released under the **GNU AGPL v3** license.  
+> You are free to use, modify, and distribute it — as long as you share your changes under the same license.
+
 **TG-FileStream** is a lightweight web server and Telegram client that acts as a proxy between Telegram servers and HTTP clients, allowing direct downloads of Telegram media files via HTTP.
 
 ---
@@ -109,9 +112,42 @@ This will stream the file directly from Telegram servers to the client.
 
 ---
 
+## 🛠️ Contributing & Reporting Issues
+
+Found a bug or have a feature request? Please [open an issue](https://github.com/DeekshithSH/TG-FileStream/issues) on GitHub.
+
+### 🐞 Reporting Issues
+When reporting a bug, **please include**:
+- Steps to reproduce the issue
+- Expected behavior vs actual behavior
+- Relevant logs, screenshots, or error messages (if any)
+- Environment details (OS, Python version, etc.)
+
+**Example issue title:**  
+`[Bug] Download fails for large files`
+
+### 💡 Requesting Features
+When suggesting a new feature, **please include**:
+- A clear and concise description of the feature
+- The motivation or use case for it
+- Expected behavior (input/output examples if applicable)
+- Any alternatives you've considered
+
+**Example feature title:**  
+`[Feature] Add support for download progress feedback`
+
+---
+
+Contributions are welcome!  
+Feel free to fork the project and open a pull request.
+
+> 🔍 **Note:** Make sure to test your code thoroughly before submitting a PR to help maintain stability and performance.
+
+---
+
 ## 💡 Credits
 
-- **Deekshith SH** – Me (aka **SpringsFern**, **GatheredAtom696**)
+- **Deekshith SH** – Me
 - **Tulir** – Original author of [`tg-filestream`](https://github.com/tulir/tg-filestream), whose code inspired this project and is referenced in `paralleltransfer.py`
 
 ---
