@@ -46,6 +46,7 @@ class Config:
     PORT: int = environ.get("PORT", 8080)
     PUBLIC_URL: str = environ.get("PUBLIC_URL", f"http://{HOST}:{PORT}")
     DEBUG: bool = bool(environ.get("DEBUG", None))
+    EXT_DEBUG: bool = bool(environ.get("EXT_DEBUG", None))
     CONNECTION_LIMIT: int = int(environ.get("CONNECTION_LIMIT", 20))
     TOKENS: List[str] = get_multi_client_tokens()
     CACHE_SIZE: int = int(environ.get("CACHE_SIZE", 128))
