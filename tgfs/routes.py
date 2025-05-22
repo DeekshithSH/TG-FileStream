@@ -55,34 +55,20 @@ async def handle_file_request(req: web.Request) -> web.Response:
     until_bytes = (req.http_range.stop or size) - 1
 
     if (until_bytes >= size) or (from_bytes < 0) or (until_bytes < from_bytes):
-        return web.Response(status=416,headers={"Content-Range": f"bytes */{size}"})
+        return web.Response(status=416, headers={"Content-Range": f"bytes */{size}"})
 
-    response = web.StreamResponse(status=200 if (from_bytes == 0 and until_bytes == size - 1) else 206,
-    headers={
+    if head:
+        body=None
+    else:
+        body=transfer.download(file.location, file.dc_id, size, from_bytes, until_bytes)
+
+    return web.Response(
+        status=200 if (from_bytes == 0 and until_bytes == size - 1) else 206,
+        body=body,
+        headers={
         "Content-Type": file.mime_type,
         "Content-Range": f"bytes {from_bytes}-{until_bytes}/{size}",
         "Content-Length": str(until_bytes - from_bytes + 1),
         "Content-Disposition": f'attachment; filename="{file_name}"',
         "Accept-Ranges": "bytes",
     })
-
-    try:
-        log.debug("Preparing stream response")
-        response.force_close()
-        await response.prepare(req)
-        if not head:
-            log.debug("writing chunk to response")
-            await transfer.download(file.location, file.dc_id, size, from_bytes, until_bytes, response)
-        # try:
-        #     log.debug("Calling response.write_eof()")
-        #     await asyncio.wait_for(response.write_eof(), timeout=5)
-        # except Exception:
-        #     if req.transport is not None and not req.transport.is_closing():
-        #         req.transport.close()
-        return response
-
-    finally:
-        if transfer:
-            async with client_selection_lock:
-                transfer.active_clients -= 1
-        log.debug("Response stream closed")

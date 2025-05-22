@@ -78,9 +78,7 @@ python3 -m tgfs
 | `PUBLIC_URL`         | `https://0.0.0.0:8080` | Public-facing URL used to generate download links                            |
 | `CONNECTION_LIMIT`   | `20`                   | Number of connections to create per DC for a single client                   |
 | `CACHE_SIZE`         | `128`                  | Number of file info objects to cache                                         |
-| `TIMEOUT_SECONDS`    | `30`                   | Number of seconds to wait after sending a `GetFileRequest` before timing out |
 | `DOWNLOAD_PART_SIZE` | `1048576 (1MB)`        | Number of bytes to request in a single chunk                                 |
-| `PREFETCH_COUNT`     | `2`                    | Number of chunks to request in advance                                       |
 | `NO_UPDATE`          | `False`                | Whether to reply to messages sent to the bot (True to disable replies)       |
 
 

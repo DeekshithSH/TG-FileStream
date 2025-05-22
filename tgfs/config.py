@@ -50,7 +50,5 @@ class Config:
     CONNECTION_LIMIT: int = int(environ.get("CONNECTION_LIMIT", 20))
     TOKENS: List[str] = get_multi_client_tokens()
     CACHE_SIZE: int = int(environ.get("CACHE_SIZE", 128))
-    TIMEOUT_SECONDS: int = int(environ.get("TIMEOUT_SECONDS", 30))
     DOWNLOAD_PART_SIZE: int = int(environ.get("DOWNLOAD_PART_SIZE", 1024 * 1024))
-    PREFETCH_COUNT: int = int(environ.get("PREFETCH_COUNT", 2))
     NO_UPDATE: bool = bool(environ.get("NO_UPDATE", False))
