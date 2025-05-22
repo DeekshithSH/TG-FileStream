@@ -68,15 +68,17 @@ async def handle_file_request(req: web.Request) -> web.Response:
 
     try:
         log.debug("Preparing stream response")
+        response.force_close()
         await response.prepare(req)
         if not head:
             log.debug("writing chunk to response")
-            await transfer.download(file.location, file.dc_id, size, from_bytes, until_bytes, response.write)
+            await transfer.download(file.location, file.dc_id, size, from_bytes, until_bytes, response)
         try:
             log.debug("Calling response.write_eof()")
             await asyncio.wait_for(response.write_eof(), timeout=5)
         except Exception:
-            req.transport.close()
+            if req.transport is not None and not req.transport.is_closing():
+                req.transport.close()
         return response
 
     finally:

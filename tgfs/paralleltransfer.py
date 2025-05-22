@@ -20,13 +20,14 @@
 # pylint: disable=protected-access
 
 from collections import OrderedDict
-from typing import AsyncGenerator, Callable, Coroutine, Dict, Optional, List
+from typing import AsyncGenerator, Dict, Optional, List
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 import logging
 import asyncio
 import math
 
+from aiohttp.web import StreamResponse
 from telethon import TelegramClient
 from telethon.crypto import AuthKey
 from telethon.network import MTProtoSender
@@ -192,7 +193,7 @@ class ParallelTransferrer:
 
     async def _int_download(self, request: GetFileRequest, first_part: int, last_part: int,
         part_count: int, part_size: int, dc_id: int, first_part_cut: int,
-        last_part_cut: int, writer: Callable[[bytes], Coroutine[None, None, None]]
+        last_part_cut: int, resp: StreamResponse
     ) -> AsyncGenerator[bytes, None]:
         log = self.log
         self.users += 1
@@ -244,7 +245,8 @@ class ParallelTransferrer:
                         if item is None:
                             break
                         try:
-                            await asyncio.wait_for(writer(item), Config.TIMEOUT_SECONDS)
+                            await asyncio.wait_for(resp.write(item), Config.TIMEOUT_SECONDS)
+                            await asyncio.wait_for(resp.drain(), Config.TIMEOUT_SECONDS)
                         except (ConnectionResetError, asyncio.CancelledError, BrokenPipeError, ConnectionError) as e:
                             log.debug(f"Client disconnected during write: {e}")
                             break
@@ -280,7 +282,7 @@ class ParallelTransferrer:
 
     def download(
             self, location: InputTypeLocation, dc_id: int, file_size: int,
-            offset: int, limit: int, writer: Callable[[bytes], Coroutine[None, None, None]]
+            offset: int, limit: int, resp: StreamResponse
     ) -> AsyncGenerator[bytes, None]:
         part_size = Config.DOWNLOAD_PART_SIZE
         first_part_cut = offset % part_size
@@ -294,4 +296,4 @@ class ParallelTransferrer:
             location, offset=first_part * part_size, limit=part_size)
 
         return self._int_download(request, first_part, last_part, part_count, part_size, dc_id,
-                                  first_part_cut, last_part_cut, writer)
+                                  first_part_cut, last_part_cut, resp)
