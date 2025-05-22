@@ -218,12 +218,12 @@ class ParallelTransferrer:
                         yield result.bytes
                     log.debug("Part %d/%d (total %d) downloaded", part, last_part, part_count)
                     part += 1
-                log.debug("Parallel download finished")
+                log.info("Parallel download finished")
         except (GeneratorExit, StopAsyncIteration, asyncio.CancelledError):
-            log.debug("Parallel download interrupted")
+            log.info("Parallel download interrupted")
             raise
         except Exception:
-            log.debug("Parallel download errored", exc_info=True)
+            log.error("Parallel download errored", exc_info=True)
         finally:
             self.active_clients -= 1
             self.users -= 1
@@ -236,7 +236,7 @@ class ParallelTransferrer:
         last_part_cut = (limit % part_size) + 1
         last_part = math.ceil(limit / part_size)
         part_count = math.ceil(file_size / part_size)
-        self.log.debug("Starting parallel download: chunks %d-%d of %d %s",
+        self.log.info("Starting parallel download: chunks %d-%d of %d %s",
                        first_part, last_part, part_count, location)
         request = GetFileRequest(location, offset=first_part * part_size, limit=part_size)
 

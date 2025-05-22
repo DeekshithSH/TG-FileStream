@@ -65,6 +65,7 @@ async def _start_client(token: str) -> Tuple[Optional[ParallelTransferrer], Opti
 async def start_clients():
     me: InputPeerUser = await client.get_me(True)
     multi_clients[me.user_id] = ParallelTransferrer(client, me.user_id)
+    multi_clients[me.user_id].post_init()
     task = [_start_client(token) for token in Config.TOKENS]
     result = await asyncio.gather(*task)
     multi_clients.update({
