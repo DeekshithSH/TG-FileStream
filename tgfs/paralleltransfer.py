@@ -177,9 +177,9 @@ class ParallelTransferrer:
 
     async def get_file(self, message_id: int, file_name: str) -> Optional[FileInfo]:
         if message_id in self.cached_files:
-            return await self.cached_files[message_id]
-        task = asyncio.create_task(get_fileinfo(
-            self.client, message_id, file_name))
+            file = await self.cached_files[message_id]
+            return file if file and file.file_name == file_name else None
+        task = asyncio.create_task(get_fileinfo(self.client, message_id, file_name))
         if Config.CACHE_SIZE is not None and len(self.cached_files) > Config.CACHE_SIZE:
             self.cached_files.popitem(last=False)
         self.cached_files[message_id] = task

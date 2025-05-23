@@ -42,7 +42,8 @@ async def handle_file_request(req: web.Request) -> web.Response:
     async with client_selection_lock:
         client_id = min(multi_clients, key=lambda k: multi_clients[k].active_clients)
         transfer = multi_clients[client_id]
-        transfer.active_clients += 1
+        if not head:
+            transfer.active_clients += 1
         log.debug("Selected client %d for %s. Active downloads for this client: %d", client_id, file_name, transfer.active_clients)
 
     file: FileInfo = await transfer.get_file(msg_id, file_name)
